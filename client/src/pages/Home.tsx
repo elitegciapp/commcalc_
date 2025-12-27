@@ -5,8 +5,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { STATE_TAX_RATES, FEDERAL_TAX_BASELINE } from "@/lib/constants";
 import { cn } from "@/lib/utils";
-import { Info, DollarSign, Percent, Calculator, ArrowRight } from "lucide-react";
+import { Info, DollarSign, Percent, ArrowRight } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import logoImage from "@assets/ChatGPT_Image_Dec_24,_2025,_12_07_10_PM_1766805433840.png";
 
 // --- Components ---
 
@@ -143,11 +144,8 @@ export default function Home() {
       {/* Header */}
       <header className="w-full border-b border-border/40 bg-background/50 backdrop-blur-md sticky top-0 z-10">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-              <Calculator className="h-5 w-5" />
-            </div>
-            <span className="font-bold text-lg tracking-tight">Comm<span className="text-primary">Calc</span></span>
+          <div className="flex items-center">
+            <img src={logoImage} alt="CommCalc" className="h-10" />
           </div>
           <div className="text-xs font-medium text-muted-foreground border border-border/50 rounded-full px-3 py-1">
             Free Tool
