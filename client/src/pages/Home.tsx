@@ -156,7 +156,7 @@ export default function Home() {
       <main className="flex-1 container mx-auto px-4 py-8 md:py-12 max-w-6xl">
         
         <div className="text-center mb-12 space-y-4">
-          <img src={logoImage} alt="CommCalc - Commission Calculator" className="h-16 md:h-20 mx-auto" />
+          <img src={logoImage} alt="CommCalc - Commission Calculator" className="h-24 md:h-32 lg:h-40 mx-auto" />
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto leading-relaxed">
             Calculate your take-home pay instantly. See exactly what you'll earn after splits, fees, taxes, and deductions.
           </p>
