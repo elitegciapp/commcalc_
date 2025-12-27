@@ -7,7 +7,7 @@ import { STATE_TAX_RATES, FEDERAL_TAX_BASELINE } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { Info, DollarSign, Percent, ArrowRight } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
-import logoImage from "@assets/CommCalc_Logo_BG_Removed_1766805830242.png";
+import logoImage from "@assets/CommCalc_2_Trans_1766805910091.png";
 
 // --- Components ---
 
