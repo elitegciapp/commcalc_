@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
 import Splash from "@/pages/Splash";
+import { AnimatedBackground } from "@/components/animated-background";
 
 function Router() {
   return (
@@ -19,8 +20,11 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Toaster />
-      <Router />
+      <AnimatedBackground />
+      <div className="relative z-10">
+        <Toaster />
+        <Router />
+      </div>
     </QueryClientProvider>
   );
 }

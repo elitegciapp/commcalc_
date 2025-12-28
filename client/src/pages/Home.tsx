@@ -6,10 +6,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { STATE_TAX_RATES, FEDERAL_TAX_BASELINE } from "@/lib/constants";
 import { cn } from "@/lib/utils";
-import { Info, DollarSign, Percent, Users, Plus, Trash2, AlertCircle } from "lucide-react";
+import { Info, DollarSign, Percent, Users, Plus, Trash2, AlertCircle, Download } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import logoImage from "@assets/CommCalc_2_Trans_1766805910091.png";
+import { downloadCsv } from "@/lib/export";
 
 // --- Types ---
 
@@ -394,8 +395,135 @@ export default function Home() {
     }).format(val);
   };
 
+  const downloadSummaryCsv = () => {
+    const rows = [
+      {
+        salePrice,
+        commissionRate,
+        referralFee,
+        agentSplit,
+        tcFee,
+        taxRate,
+        totalCommission: formatCurrency(totalCommission),
+        referralAmount: formatCurrency(referralAmount),
+        commissionAfterReferral: formatCurrency(commissionAfterReferral),
+        teamSharePercent,
+        yourTeamShare: formatCurrency(yourTeamShare),
+        agentGross: formatCurrency(agentGross),
+        incomeBeforeTax: formatCurrency(incomeBeforeTax),
+        estimatedTaxAmount: formatCurrency(estimatedTaxAmount),
+        takeHome: formatCurrency(takeHome),
+      },
+    ];
+
+    downloadCsv(`commcalc-summary.csv`, rows);
+  };
+
+  const downloadSummaryPdf = () => {
+    const title = "CommCalc Summary";
+    const now = new Date();
+    const safeText = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+    const items: Array<[string, string]> = [
+      ["Sale Price", formatCurrency(salePrice)],
+      ["Commission Rate", `${commissionRate}%`],
+      ["Gross Commission", formatCurrency(totalCommission)],
+      ["Referral Fee", `${referralFee}%`],
+      ["Referral Amount", formatCurrency(referralAmount)],
+      ["Commission After Referral", formatCurrency(commissionAfterReferral)],
+      ["Team Share", isTeamSplitActive ? `${teamSharePercent}%` : "Not applied"],
+      ["Your Team Share", formatCurrency(yourTeamShare)],
+      ["Brokerage Split", `${agentSplit}%`],
+      ["Agent Gross", formatCurrency(agentGross)],
+      ["TC Fee", formatCurrency(tcFee)],
+      ["Before Taxes", formatCurrency(incomeBeforeTax)],
+      ["Estimated Tax Rate", `${taxRate}%`],
+      ["Estimated Taxes", formatCurrency(estimatedTaxAmount)],
+      ["Take Home", formatCurrency(takeHome)],
+    ];
+
+    const html = `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${safeText(title)}</title>
+    <style>
+      :root { color-scheme: light; }
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; }
+      h1 { font-size: 18px; margin: 0 0 6px; }
+      .meta { font-size: 12px; color: #555; margin-bottom: 16px; }
+      table { width: 100%; border-collapse: collapse; }
+      td { padding: 10px 8px; border-bottom: 1px solid #ddd; vertical-align: top; }
+      td:first-child { color: #333; width: 55%; }
+      td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+      .takehome td { font-weight: 700; border-top: 2px solid #000; border-bottom: 0; }
+      @media print { body { margin: 0.5in; } }
+    </style>
+  </head>
+  <body>
+    <h1>${safeText(title)}</h1>
+    <div class="meta">Generated ${safeText(now.toLocaleString())}</div>
+    <table>
+      ${items
+        .map(([k, v]) => {
+          const rowClass = k === "Take Home" ? " class=\"takehome\"" : "";
+          return `<tr${rowClass}><td>${safeText(k)}</td><td>${safeText(v)}</td></tr>`;
+        })
+        .join("")}
+    </table>
+  </body>
+</html>`;
+
+    // VS Code Simple Browser commonly blocks/blank-renders window.open(); print via hidden iframe.
+    const iframe = document.createElement("iframe");
+    iframe.setAttribute("aria-hidden", "true");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+
+    const cleanup = () => {
+      try {
+        iframe.remove();
+      } catch {
+        // ignore
+      }
+    };
+
+    iframe.onload = () => {
+      const w = iframe.contentWindow;
+      if (!w) {
+        cleanup();
+        return;
+      }
+
+      // Give layout a tick before printing.
+      w.focus();
+      requestAnimationFrame(() => {
+        w.print();
+        // Cleanup after print dialog is triggered.
+        setTimeout(cleanup, 500);
+      });
+    };
+
+    // Prefer srcdoc when available.
+    (iframe as HTMLIFrameElement).srcdoc = html;
+    document.body.appendChild(iframe);
+
+    // Fallback path for environments that don't fire onload for srcdoc.
+    const doc = iframe.contentDocument;
+    if (doc) {
+      doc.open();
+      doc.write(html);
+      doc.close();
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-primary/20">
+    <div className="min-h-screen bg-transparent text-foreground flex flex-col font-sans selection:bg-primary/20">
       
       {/* Header */}
       <header className="w-full border-b border-border/40 bg-background/50 backdrop-blur-md sticky top-0 z-10">
@@ -567,7 +695,33 @@ export default function Home() {
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary to-transparent opacity-50"></div>
                 
                 <CardHeader className="pb-4 pt-8 px-8">
-                  <CardTitle className="text-lg font-medium text-muted-foreground">Breakdown</CardTitle>
+                  <div className="flex items-center justify-between gap-3">
+                    <CardTitle className="text-lg font-medium text-muted-foreground">Breakdown</CardTitle>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={downloadSummaryCsv}
+                        className="bg-transparent text-slate-200 border-white/10 hover:bg-white/5"
+                        data-testid="button-download-csv"
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        CSV
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={downloadSummaryPdf}
+                        className="bg-transparent text-slate-200 border-white/10 hover:bg-white/5"
+                        data-testid="button-download-pdf"
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        PDF
+                      </Button>
+                    </div>
+                  </div>
                 </CardHeader>
                 
                 <CardContent className="px-8 pb-8 space-y-4">
