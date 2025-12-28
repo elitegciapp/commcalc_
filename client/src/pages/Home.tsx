@@ -1,13 +1,30 @@
-import React, { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import React, { useState, useEffect, useMemo } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { STATE_TAX_RATES, FEDERAL_TAX_BASELINE } from "@/lib/constants";
 import { cn } from "@/lib/utils";
-import { Info, DollarSign, Percent, ArrowRight } from "lucide-react";
+import { Info, DollarSign, Percent, Users, Plus, Trash2, AlertCircle } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
 import logoImage from "@assets/CommCalc_2_Trans_1766805910091.png";
+
+// --- Types ---
+
+interface TeamMember {
+  id: string;
+  name: string;
+  role: string;
+  percent: number;
+  isSelf: boolean;
+}
+
+interface TeamSplitConfig {
+  enabled: boolean;
+  members: TeamMember[];
+}
 
 // --- Components ---
 
@@ -25,14 +42,10 @@ const NumberInput = ({ label, value, onValueChange, prefix, suffix, hint, classN
   const [displayValue, setDisplayValue] = useState(value.toString());
 
   useEffect(() => {
-    // Only update display value if the number value changes externally and doesn't match current display
-    // This prevents cursor jumping if we were to format on every keystroke strictly
-    // But for this simple app, formatting on blur is better UX for "calculator" feel
     setDisplayValue(value === 0 && displayValue === "" ? "" : value.toLocaleString());
   }, [value]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Allow digits and one decimal point
     const raw = e.target.value.replace(/,/g, "");
     if (raw === "" || /^\d*\.?\d*$/.test(raw)) {
       setDisplayValue(e.target.value);
@@ -89,10 +102,155 @@ const NumberInput = ({ label, value, onValueChange, prefix, suffix, hint, classN
   );
 };
 
+interface TeamMemberRowProps {
+  member: TeamMember;
+  onUpdate: (id: string, updates: Partial<TeamMember>) => void;
+  onRemove: (id: string) => void;
+  onSetSelf: (id: string) => void;
+  canRemove: boolean;
+}
+
+const TeamMemberRow = ({ member, onUpdate, onRemove, onSetSelf, canRemove }: TeamMemberRowProps) => {
+  return (
+    <div className="flex items-center gap-3 p-3 bg-secondary/30 rounded-lg border border-border/30">
+      <div className="flex-1 grid grid-cols-2 gap-3">
+        <Input
+          placeholder="Name"
+          value={member.name}
+          onChange={(e) => onUpdate(member.id, { name: e.target.value })}
+          className="bg-secondary/50 border-input h-10 text-sm"
+          data-testid={`input-member-name-${member.id}`}
+        />
+        <Input
+          placeholder="Role"
+          value={member.role}
+          onChange={(e) => onUpdate(member.id, { role: e.target.value })}
+          className="bg-secondary/50 border-input h-10 text-sm"
+          data-testid={`input-member-role-${member.id}`}
+        />
+      </div>
+      <div className="w-20">
+        <div className="relative">
+          <Input
+            type="number"
+            value={member.percent}
+            onChange={(e) => onUpdate(member.id, { percent: parseFloat(e.target.value) || 0 })}
+            className="bg-secondary/50 border-input h-10 text-sm pr-6 text-center"
+            data-testid={`input-member-percent-${member.id}`}
+          />
+          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+        </div>
+      </div>
+      <button
+        onClick={() => onSetSelf(member.id)}
+        className={cn(
+          "px-3 py-1.5 rounded text-xs font-medium transition-colors",
+          member.isSelf
+            ? "bg-primary text-primary-foreground"
+            : "bg-secondary/50 text-muted-foreground hover:bg-secondary"
+        )}
+        data-testid={`button-set-self-${member.id}`}
+      >
+        You
+      </button>
+      {canRemove && (
+        <button
+          onClick={() => onRemove(member.id)}
+          className="p-2 text-muted-foreground hover:text-red-400 transition-colors"
+          data-testid={`button-remove-member-${member.id}`}
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      )}
+    </div>
+  );
+};
+
+interface TeamSplitSectionProps {
+  title: string;
+  config: TeamSplitConfig;
+  onToggle: (enabled: boolean) => void;
+  onUpdateMember: (id: string, updates: Partial<TeamMember>) => void;
+  onAddMember: () => void;
+  onRemoveMember: (id: string) => void;
+  onSetSelf: (id: string) => void;
+  validation: { isValid: boolean; totalPercent: number; hasSelf: boolean };
+  dataTestIdPrefix: string;
+}
+
+const TeamSplitSection = ({
+  title,
+  config,
+  onToggle,
+  onUpdateMember,
+  onAddMember,
+  onRemoveMember,
+  onSetSelf,
+  validation,
+  dataTestIdPrefix,
+}: TeamSplitSectionProps) => {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <Label className="text-muted-foreground font-medium text-xs uppercase tracking-wider">{title}</Label>
+        <Switch
+          checked={config.enabled}
+          onCheckedChange={onToggle}
+          data-testid={`switch-${dataTestIdPrefix}`}
+        />
+      </div>
+      
+      {config.enabled && (
+        <div className="space-y-3">
+          {config.members.map((member) => (
+            <TeamMemberRow
+              key={member.id}
+              member={member}
+              onUpdate={onUpdateMember}
+              onRemove={onRemoveMember}
+              onSetSelf={onSetSelf}
+              canRemove={config.members.length > 1}
+            />
+          ))}
+          
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onAddMember}
+            className="w-full border-dashed border-border/50 text-muted-foreground hover:text-foreground"
+            data-testid={`button-add-member-${dataTestIdPrefix}`}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Team Member
+          </Button>
+          
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Total Split:</span>
+            <span className={cn(
+              "font-mono font-medium",
+              validation.isValid ? "text-green-400" : "text-red-400"
+            )}>
+              {validation.totalPercent}%
+            </span>
+          </div>
+          
+          {!validation.isValid && (
+            <div className="flex items-center gap-2 text-red-400 text-xs bg-red-400/10 p-2 rounded">
+              <AlertCircle className="h-3 w-3" />
+              {validation.totalPercent !== 100 && <span>Total must equal 100%</span>}
+              {!validation.hasSelf && <span>Please select which member is you</span>}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // --- Main Page ---
 
 export default function Home() {
-  // State
+  // Basic State
   const [salePrice, setSalePrice] = useState(500000);
   const [commissionRate, setCommissionRate] = useState(3);
   const [agentSplit, setAgentSplit] = useState(70);
@@ -101,33 +259,131 @@ export default function Home() {
   const [taxRate, setTaxRate] = useState(25);
   const [selectedState, setSelectedState] = useState("custom");
 
+  // Team Split State
+  const createDefaultMember = (isSelf: boolean = false): TeamMember => ({
+    id: crypto.randomUUID(),
+    name: isSelf ? "You" : "",
+    role: isSelf ? "Agent" : "",
+    percent: isSelf ? 100 : 0,
+    isSelf,
+  });
+
+  const [listingSplit, setListingSplit] = useState<TeamSplitConfig>({
+    enabled: false,
+    members: [createDefaultMember(true)],
+  });
+
+  const [buyerSplit, setBuyerSplit] = useState<TeamSplitConfig>({
+    enabled: false,
+    members: [createDefaultMember(true)],
+  });
+
   // Effects
   useEffect(() => {
     if (selectedState !== "custom" && STATE_TAX_RATES[selectedState] !== undefined) {
       const stateRate = STATE_TAX_RATES[selectedState];
-      // Estimate combined rate: Federal + State
-      // Simple addition is usually "good enough" for estimation, though deductibility varies
       setTaxRate(parseFloat((FEDERAL_TAX_BASELINE + stateRate).toFixed(2)));
     }
   }, [selectedState]);
 
+  // Validation
+  const validateTeamSplit = (config: TeamSplitConfig) => {
+    const totalPercent = config.members.reduce((sum, m) => sum + m.percent, 0);
+    const hasSelf = config.members.some(m => m.isSelf);
+    const isValid = !config.enabled || (Math.abs(totalPercent - 100) < 0.01 && hasSelf);
+    return { isValid, totalPercent: Math.round(totalPercent * 100) / 100, hasSelf };
+  };
+
+  const listingValidation = useMemo(() => validateTeamSplit(listingSplit), [listingSplit]);
+  const buyerValidation = useMemo(() => validateTeamSplit(buyerSplit), [buyerSplit]);
+
+  // Team Split Helpers
+  const updateTeamMember = (
+    setter: React.Dispatch<React.SetStateAction<TeamSplitConfig>>,
+    id: string,
+    updates: Partial<TeamMember>
+  ) => {
+    setter(prev => ({
+      ...prev,
+      members: prev.members.map(m => m.id === id ? { ...m, ...updates } : m),
+    }));
+  };
+
+  const addTeamMember = (setter: React.Dispatch<React.SetStateAction<TeamSplitConfig>>) => {
+    setter(prev => ({
+      ...prev,
+      members: [...prev.members, createDefaultMember()],
+    }));
+  };
+
+  const removeTeamMember = (
+    setter: React.Dispatch<React.SetStateAction<TeamSplitConfig>>,
+    id: string
+  ) => {
+    setter(prev => ({
+      ...prev,
+      members: prev.members.filter(m => m.id !== id),
+    }));
+  };
+
+  const setSelfMember = (
+    setter: React.Dispatch<React.SetStateAction<TeamSplitConfig>>,
+    id: string
+  ) => {
+    setter(prev => ({
+      ...prev,
+      members: prev.members.map(m => ({ ...m, isSelf: m.id === id })),
+    }));
+  };
+
+  const toggleTeamSplit = (
+    setter: React.Dispatch<React.SetStateAction<TeamSplitConfig>>,
+    enabled: boolean
+  ) => {
+    setter(prev => {
+      if (enabled && prev.members.length === 0) {
+        return { enabled, members: [createDefaultMember(true)] };
+      }
+      return { ...prev, enabled };
+    });
+  };
+
   // Calculations
   const totalCommission = salePrice * (commissionRate / 100);
-  
-  // Referral is usually taken off the top of the gross commission
   const referralAmount = totalCommission * (referralFee / 100);
   const commissionAfterReferral = totalCommission - referralAmount;
+
+  // Calculate team share (applies before brokerage split)
+  const getTeamSharePercent = () => {
+    // Check if either team split is enabled and valid
+    if (listingSplit.enabled && listingValidation.isValid) {
+      const selfMember = listingSplit.members.find(m => m.isSelf);
+      return selfMember?.percent ?? 100;
+    }
+    if (buyerSplit.enabled && buyerValidation.isValid) {
+      const selfMember = buyerSplit.members.find(m => m.isSelf);
+      return selfMember?.percent ?? 100;
+    }
+    return 100; // No team split, agent gets 100%
+  };
+
+  const teamSharePercent = getTeamSharePercent();
+  const isTeamSplitActive = (listingSplit.enabled && listingValidation.isValid) || 
+                            (buyerSplit.enabled && buyerValidation.isValid);
   
-  // Agent split is applied to the remaining commission
-  const agentGross = commissionAfterReferral * (agentSplit / 100);
+  // Your share after team split
+  const yourTeamShare = commissionAfterReferral * (teamSharePercent / 100);
   
-  // TC Fee is deducted from agent gross
+  // Brokerage split applies to your team share
+  const agentGross = yourTeamShare * (agentSplit / 100);
+  
+  // TC Fee deduction
   const incomeBeforeTax = agentGross - tcFee;
   
   // Taxes
   const estimatedTaxAmount = incomeBeforeTax > 0 ? incomeBeforeTax * (taxRate / 100) : 0;
   
-  // Final
+  // Final take home
   const takeHome = incomeBeforeTax - estimatedTaxAmount;
 
   const formatCurrency = (val: number) => {
@@ -169,6 +425,7 @@ export default function Home() {
             <Card className="border-border/50 bg-card/50 backdrop-blur-sm shadow-xl">
               <CardContent className="p-6 md:p-8 space-y-8">
                 
+                {/* Transaction Details */}
                 <div className="space-y-6">
                   <div className="flex items-center gap-2 text-primary/80 font-medium pb-2 border-b border-border/30">
                     <DollarSign className="h-4 w-4" />
@@ -193,19 +450,54 @@ export default function Home() {
                   </div>
                 </div>
 
+                {/* Team Splits */}
+                <div className="space-y-6">
+                  <div className="flex items-center gap-2 text-primary/80 font-medium pb-2 border-b border-border/30">
+                    <Users className="h-4 w-4" />
+                    <span>Team Splits</span>
+                  </div>
+
+                  <div className="grid md:grid-cols-1 gap-6">
+                    <TeamSplitSection
+                      title="Listing Side Team Split"
+                      config={listingSplit}
+                      onToggle={(enabled) => toggleTeamSplit(setListingSplit, enabled)}
+                      onUpdateMember={(id, updates) => updateTeamMember(setListingSplit, id, updates)}
+                      onAddMember={() => addTeamMember(setListingSplit)}
+                      onRemoveMember={(id) => removeTeamMember(setListingSplit, id)}
+                      onSetSelf={(id) => setSelfMember(setListingSplit, id)}
+                      validation={listingValidation}
+                      dataTestIdPrefix="listing-split"
+                    />
+                    
+                    <TeamSplitSection
+                      title="Buyer Side Team Split"
+                      config={buyerSplit}
+                      onToggle={(enabled) => toggleTeamSplit(setBuyerSplit, enabled)}
+                      onUpdateMember={(id, updates) => updateTeamMember(setBuyerSplit, id, updates)}
+                      onAddMember={() => addTeamMember(setBuyerSplit)}
+                      onRemoveMember={(id) => removeTeamMember(setBuyerSplit, id)}
+                      onSetSelf={(id) => setSelfMember(setBuyerSplit, id)}
+                      validation={buyerValidation}
+                      dataTestIdPrefix="buyer-split"
+                    />
+                  </div>
+                </div>
+
+                {/* Splits & Fees */}
                 <div className="space-y-6">
                   <div className="flex items-center gap-2 text-primary/80 font-medium pb-2 border-b border-border/30">
                     <Percent className="h-4 w-4" />
-                    <span>Splits & Fees</span>
+                    <span>Brokerage Splits & Fees</span>
                   </div>
 
                   <div className="grid md:grid-cols-2 gap-6">
                     <NumberInput
-                      label="Your Split"
+                      label="Your Brokerage Split"
                       value={agentSplit}
                       onValueChange={setAgentSplit}
                       suffix="%"
-                      hint="Brokerage split"
+                      hint="Your share after brokerage"
                       dataTestId="input-agent-split"
                     />
                     <NumberInput
@@ -227,6 +519,7 @@ export default function Home() {
                   </div>
                 </div>
 
+                {/* Taxes */}
                 <div className="space-y-6">
                   <div className="flex items-center gap-2 text-primary/80 font-medium pb-2 border-b border-border/30">
                     <Info className="h-4 w-4" />
@@ -268,7 +561,6 @@ export default function Home() {
           {/* Result Column */}
           <div className="lg:col-span-5 sticky top-24">
             <div className="relative group">
-              {/* Glow effect behind the card */}
               <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 to-blue-600/20 rounded-2xl blur-lg opacity-75 group-hover:opacity-100 transition duration-1000 group-hover:duration-200"></div>
               
               <Card className="relative border-border bg-[#0f1420] shadow-2xl overflow-hidden">
@@ -278,17 +570,17 @@ export default function Home() {
                   <CardTitle className="text-lg font-medium text-muted-foreground">Breakdown</CardTitle>
                 </CardHeader>
                 
-                <CardContent className="px-8 pb-8 space-y-6">
+                <CardContent className="px-8 pb-8 space-y-4">
                   
-                  {/* Total Commission Line */}
+                  {/* Gross Commission */}
                   <div className="flex justify-between items-center py-2">
-                    <span className="text-sm font-medium text-slate-400">Total Commission</span>
+                    <span className="text-sm font-medium text-slate-400">Gross Commission</span>
                     <span className="text-lg font-semibold text-white tracking-wide" data-testid="display-total-commission">
                       {formatCurrency(totalCommission)}
                     </span>
                   </div>
 
-                  {/* Referral Deduction (only show if > 0) */}
+                  {/* Referral Deduction */}
                   {referralFee > 0 && (
                     <div className="flex justify-between items-center py-1">
                       <span className="text-sm text-slate-500">Referral ({referralFee}%)</span>
@@ -298,11 +590,24 @@ export default function Home() {
                     </div>
                   )}
 
+                  {/* Team Share (only show if team split is active) */}
+                  {isTeamSplitActive && (
+                    <>
+                      <Separator className="bg-border/40" />
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-sm font-medium text-slate-400">Your Team Share ({teamSharePercent}%)</span>
+                        <span className="text-lg font-semibold text-white tracking-wide" data-testid="display-team-share">
+                          {formatCurrency(yourTeamShare)}
+                        </span>
+                      </div>
+                    </>
+                  )}
+
                   <Separator className="bg-border/40" />
 
-                  {/* Split */}
+                  {/* Brokerage Split */}
                   <div className="flex justify-between items-center py-2">
-                    <span className="text-sm font-medium text-slate-400">Your Split ({agentSplit}%)</span>
+                    <span className="text-sm font-medium text-slate-400">Brokerage Split ({agentSplit}%)</span>
                     <span className="text-lg font-semibold text-white tracking-wide" data-testid="display-agent-gross">
                       {formatCurrency(agentGross)}
                     </span>
@@ -316,6 +621,7 @@ export default function Home() {
                     </span>
                   </div>
 
+                  {/* Before Taxes & Tax */}
                   <div className="bg-secondary/30 rounded-lg p-4 mt-4 border border-white/5">
                     <div className="flex justify-between items-center mb-2">
                       <span className="text-sm font-medium text-slate-300">Before Taxes</span>
@@ -340,6 +646,7 @@ export default function Home() {
                     </div>
                   </div>
 
+                  {/* Final Take Home */}
                   <div className="pt-6 mt-2 border-t border-border/40">
                     <div className="flex flex-col gap-2">
                       <span className="text-sm uppercase tracking-widest text-muted-foreground font-semibold">Your Take Home</span>
