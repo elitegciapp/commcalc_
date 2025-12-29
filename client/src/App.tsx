@@ -19,7 +19,7 @@ function Router() {
   );
 }
 
-function App() {
+export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AnimatedBackground />
@@ -31,4 +31,3 @@ function App() {
   );
 }
 
-export default App;
