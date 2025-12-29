@@ -13,9 +13,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
-      "@components": path.resolve(__dirname, "src/components"),
-      "@shared": path.resolve(__dirname, "../shared"),
-      "@assets": path.resolve(__dirname, "../attached_assets")
+      "@components": path.resolve(__dirname, "src/components")
     }
   },
   build: {
@@ -23,3 +21,4 @@ export default defineConfig({
     emptyOutDir: true
   }
 });
+
